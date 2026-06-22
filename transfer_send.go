@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"syscall"
@@ -24,10 +25,7 @@ func transferSendMsg(uc *net.UnixConn, bs []byte) error {
 	binary.BigEndian.PutUint32(buf[0:], uint32(l))
 	copy(buf[4:], bs)
 
-	if _, err := uc.Write(buf); err != nil {
-		return err
-	}
-	return nil
+	return transferSendBytes(uc, buf)
 }
 
 func connTransferSendSock() (*net.UnixConn, error) {
@@ -104,9 +102,15 @@ func transferSendBytes(uc *net.UnixConn, b []byte) error {
 	if len(b) == 0 {
 		return nil
 	}
-	_, err := uc.Write(b)
-	if err != nil {
-		return fmt.Errorf("transferSendMsg failed: %v", err)
+	for len(b) > 0 {
+		n, err := uc.Write(b)
+		if err != nil {
+			return fmt.Errorf("transferSendMsg failed: %v", err)
+		}
+		if n == 0 {
+			return io.ErrShortWrite
+		}
+		b = b[n:]
 	}
 	return nil
 }

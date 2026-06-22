@@ -117,9 +117,9 @@ func GetInheritConnections(timeout time.Duration, wg *sync.WaitGroup, stopChan c
 	}
 	defer l.Close()
 
-	defer wg.Done()
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
+		defer wg.Done()
 		for {
 			ul := l.(*net.UnixListener)
 			_ = ul.SetDeadline(time.Now().Add(timeout))
@@ -225,11 +225,14 @@ func ListenNextInherit(waittime time.Duration, wg *sync.WaitGroup, stopChan chan
 			var buf [1]byte
 			n, _ := notify.Read(buf[:])
 			if n != 1 {
+				_ = notify.Close()
 				log.Printf("ListenNextInherit new main start failed n = %d\n", n)
 				continue
 			}
+			_ = notify.Close()
 			atomic.StoreInt32(&runstate, 1)
 			close(transChan)
+			return
 		}
 	}()
 

@@ -52,7 +52,7 @@ func main() {
 	wg := &sync.WaitGroup{}
 	stopChan := make(chan bool)
 	transChan := make(chan bool)
-	sig := make(chan os.Signal)
+	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT)
 
 	// 如果是继承过来的，那么等待旧进程传输旧的 listener 过来

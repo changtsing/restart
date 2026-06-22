@@ -48,7 +48,9 @@ func HandleReply(wg *sync.WaitGroup, dataBuf []byte, conn net.Conn, stopChan cha
 			}
 			line = bytes.Join(bytes.Split(line, []byte{'\n'}), []byte{})
 			line = bytes.Join(bytes.Split(line, []byte{'\r'}), []byte{})
-			_, _ = w.Write(append([]byte(append(append(append([]byte(p), []byte(" reply : ")...), line...))), '\n'))
+			reply := append([]byte(p+" reply : "), line...)
+			reply = append(reply, '\n')
+			_, _ = w.Write(reply)
 			line = nil
 			_ = w.Flush()
 		}
@@ -115,19 +117,21 @@ func Server(li net.Listener, wg *sync.WaitGroup, stopChan chan bool, transChan c
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		conn, err := li.Accept()
-		if ope, ok := err.(*net.OpError); ok && (ope.Op == "accept") {
-			log.Printf("tcp %#v listener close", li.Addr().String())
-			return
-		}
-		if err == nil {
+		for {
+			conn, err := li.Accept()
+			if ope, ok := err.(*net.OpError); ok && (ope.Op == "accept") {
+				log.Printf("tcp %#v listener close", li.Addr().String())
+				return
+			}
+			if err != nil {
+				log.Printf("accept failed %s, %s", li.Addr(), err)
+				return
+			}
+
 			log.Printf("accept sucessfully %#v %#v", conn.LocalAddr().String(), conn.RemoteAddr().String())
-		} else {
-			log.Printf("accept failed %s, %s", li.Addr(), err)
-			return
+			wg.Add(1)
+			go HandleReply(wg, nil, conn, stopChan, transChan)
 		}
-		wg.Add(1)
-		go HandleReply(wg, nil, conn, stopChan, transChan)
 	}()
 
 	// 控制开关
